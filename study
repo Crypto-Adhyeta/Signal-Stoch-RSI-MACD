@@ -1,0 +1,61 @@
+//This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+//© Crypto_Adhyeta
+//@version=4
+
+study(title="StochasticRSI & RSI & MACD", shorttitle="Stoch+RSI+MACD", format=format.price, precision=2, resolution="")
+//Stoch RSI
+smoothK = input(3, "K", minval=1)
+smoothD = input(3, "D", minval=1)
+lengthRSI = input(14, "RSI Length", minval=1)
+lengthStoch = input(14, "Stochastic Length", minval=1)
+srcStoch = input(close, title="RSI Source")
+rsi1 = rsi(srcStoch, lengthRSI)
+k = sma(stoch(rsi1, rsi1, rsi1, lengthStoch), smoothK)
+d = sma(k, smoothD)
+plot(k, "K", color=color.olive)
+plot(d, "D", color=#FF6A00)
+h0 = hline(80, "Upper Band", color=#606060)
+h1 = hline(20, "Lower Band", color=#606060)
+fill(h0, h1, color=#9915FF, transp=80, title="Background")
+
+
+//MACD
+//INPUTS
+fast_length = input(title="Fast Length", type=input.integer, defval=12)
+slow_length = input(title="Slow Length", type=input.integer, defval=26)
+srcMACD = input(title="Source", type=input.source, defval=close)
+signal_length = input(title="Signal Smoothing", type=input.integer, minval = 1, maxval = 50, defval = 9)
+sma_source = input(title="Simple MA (Oscillator)", type=input.bool, defval=false)
+sma_signal = input(title="Simple MA (Signal Line)", type=input.bool, defval=false)
+//PLOT COLORS
+col_grow_above = #26A69A
+col_grow_below = #FFCDD2
+col_fall_above = #B2DFDB
+col_fall_below = #EF5350
+col_macd = color.blue
+col_signal = color.red
+//CALCULATIONS
+fast_ma = sma_source ? sma(srcMACD, fast_length) : ema(srcMACD, fast_length)
+slow_ma = sma_source ? sma(srcMACD, slow_length) : ema(srcMACD, slow_length)
+macd = fast_ma - slow_ma
+signal = sma_signal ? sma(macd, signal_length) : ema(macd, signal_length)
+hist = macd - signal
+
+//PLOTS
+//plot(hist, title="Histogram", style=plot.style_columns, color=(hist>=0 ? (hist[1] < hist ? col_grow_above : col_fall_above) : (hist[1] < hist ? col_grow_below : col_fall_below) ), transp=0 )
+plot(macd, title="MACD", color=col_macd, transp=0, style=plot.style_stepline)
+plot(signal, title="Signal", color=col_signal, transp=0, style=plot.style_stepline)
+
+//INPUTS for TEST
+myRSI = rsi(close, 14)
+statusRSI = iff((myRSI > 50) and myRSI[0] > myRSI[1] , 1, 0) //RSI is in up-trend
+statusMACD = iff(macd > signal, 1, 0) //MACD > Signal
+statusStochD = iff(k[0] > 50 and k[1] < 50, 1, 0) //Stoch is 'k' is crossing 20
+
+//EVALUATION
+statusAlert = iff((statusRSI == 1) and (statusMACD == 1) and (statusStochD == 1) , 100, 0)
+
+//PLOTS
+hline(50, color=color.yellow)
+plot(myRSI, title="RSI", color=color.yellow)
+plot(statusAlert, title="Alert", color=color.white)
