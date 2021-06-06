@@ -1,0 +1,91 @@
+Combined Stoch_RSI_MACD Long_Short.pine
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Crypto_Adhyeta
+//script inspiration by DataTrader video https://www.youtube.com/watch?v=hh3BKTFE1dc
+
+//@version=4
+study(title="Combined Stochastic & RSI & MACD signal", shorttitle="Signal Stoch+RSI+MACD", format=format.price, precision=2, overlay=true)      //1st option: Displays marks when Long/Short alert is fired in the chart
+//study(title="Combined Stochastic & RSI & MACD signal", shorttitle="Signal Stoch+RSI+MACD", format=format.price, precision=2, overlay=false)   //2nd option: Displays curves of each indicator and the combined signal
+                                                                                                                                                //curve under the chart
+
+//inputs
+//***Stochastic
+periodK = input(14, title="K", minval=1)
+periodD = input(3, title="D", minval=1)
+smoothK = input(3, title="Smooth", minval=1)
+//***MACD
+fast_length = input(title="Fast Length", type=input.integer, defval=12)
+slow_length = input(title="Slow Length", type=input.integer, defval=26)
+srcMACD = input(title="Source", type=input.source, defval=close)
+signal_length = input(title="Signal Smoothing", type=input.integer, minval = 1, maxval = 50, defval = 9)
+sma_source = input(title="Oscillator: 1 - SMA / 0 - EMA", type=input.bool, defval=false)
+sma_signal = input(title="Signal Line:  1 - SMA / 0 - EMA", type=input.bool, defval=false)
+
+//variables
+stateStoch = 0
+stateRSI = 0
+stateMACD =  0
+stateCOMBINED = 0
+
+//Built-In Stochastic
+k = sma(stoch(close, high, low, periodK), smoothK)
+d = sma(k, periodD)
+if (crossover(k, 20))
+    stateStoch := 1
+else
+    if stateStoch[1] == 1 and k > 20 and k < 80 
+        stateStoch := 1
+    else
+        stateStoch := 0
+if stateStoch == 0 and crossunder(k, 80)
+    stateStoch := -1
+else
+    if stateStoch[1] == -1 and k < 80 and k > 20
+        stateStoch := -1
+
+//Built-In RSI
+myRSI=rsi(close, periodK)
+if myRSI > 50
+    stateRSI := 1
+else
+    if myRSI < 50
+        stateRSI := -1
+    else
+        stateRSI := 0
+
+//Built-In MACD
+fast_ma = sma_source ? sma(srcMACD, fast_length) : ema(srcMACD, fast_length)
+slow_ma = sma_source ? sma(srcMACD, slow_length) : ema(srcMACD, slow_length)
+macd = fast_ma - slow_ma
+signal = sma_signal ? sma(macd, signal_length) : ema(macd, signal_length)
+hist = macd - signal
+if macd > signal
+    stateMACD := 1
+else
+    if macd < signal
+        stateMACD := -1
+    else
+        stateMACD := 0
+
+
+//Indicators combination logic and alert generation
+if stateRSI == 1 and stateMACD == 1 and stateStoch == 1
+    stateCOMBINED := 2
+else
+    if (stateRSI == -1 and stateMACD == -1 and stateStoch == -1)
+        stateCOMBINED := -2
+    else 
+        stateCOMBINED := 0
+alertcondition(stateCOMBINED == 2, title='Long entry', message='Uptrend!')
+alertcondition(stateCOMBINED == -2, title='Short entry', message='Downtrend!')
+
+//Plots
+//plot(stateStoch, color=color.red)         //uncomment for display and verification; uncomment the 2nd option "overlay=false" on the top of the script
+//plot(stateRSI, color=color.blue)          //uncomment for display and verification; uncomment the 2nd option "overlay=false" on the top of the script
+//plot(stateMACD, color=color.green)        //uncomment for display and verification; uncomment the 2nd option "overlay=false" on the top of the script
+//plot(stateCOMBINED, color=color.yellow)   //uncomment for display and verification; uncomment the 2nd option "overlay=false" on the top of the script
+plotshape(crossover(stateCOMBINED, 1), text='Long', style=shape.triangledown, location=location.abovebar, color=color.green, size=size.small)   //1st option: displays Long alert only once
+                                                                                                                                                //at the beginning of the signal
+plotshape(crossunder(stateCOMBINED, -1), text='Short', style=shape.triangleup, location=location.belowbar, color=color.red, size=size.small)    //1st option: displays Short alert only once
+                                                                                                                                                //at the beginning of the signal  
+
